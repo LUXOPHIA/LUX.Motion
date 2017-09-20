@@ -2,8 +2,7 @@
 
 interface //#################################################################### ■
 
-uses System.Types, System.Generics.Collections, System.Math.Vectors,
-     FMX.Controls3D, FMX.Objects3D,
+uses System.Generics.Collections,
      LUX, LUX.D1, LUX.D2, LUX.D3, LUX.M4, LUX.Tree,
      LUX.GPU.OpenGL,
      LUX.GPU.OpenGL.Scener,
@@ -50,7 +49,7 @@ type //$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
      private
      protected
        _Name :string;
-       _Offs :TPoint3D;
+       _Offs :TSingle3D;
        ///// アクセス
        function GetRelaPoses( const I_:Integer ) :TSingleM4; virtual;
        ///// メソッド
@@ -60,7 +59,7 @@ type //$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
        constructor Create( const Name_:string );
        ///// プロパティ
        property Name                          :String    read   _Name     ;
-       property Offs                          :TPoint3D  read   _Offs     ;
+       property Offs                          :TSingle3D read   _Offs     ;
        property     Poses[ const I_:Integer ] :TSingleM4 read GetRelaPoses;
        property RelaPoses[ const I_:Integer ] :TSingleM4 read GetRelaPoses;
      end;
@@ -129,42 +128,15 @@ type //$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
        procedure LoadFromFileBVH( const FileName_:string );
      end;
 
-     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% TGLBones
-
-     TGLBones = class( TGLObject )
-     private
-       ///// メソッド
-       procedure MakeModel;
-       procedure InitModel;
-     protected
-       _Bones  :TBones;
-       _FrameI :Integer;
-       ///// アクセス
-       function GetBones :TBones;
-       procedure SetBones( const Bones_:TBones );
-       function GetFrameI :Integer;
-       procedure SetFrameI( const FrameI_:Integer );
-     public
-       constructor Create; override;
-       destructor Destroy; override;
-       ///// プロパティ
-       property Bones  :TBones  read GetBones  write SetBones ;
-       property FrameI :Integer read GetFrameI write SetFrameI;
-     end;
-
 //const //$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$【定数】
 
 //var //$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$【変数】
 
 //$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$【ルーチン】
 
-function GapFit( const P0_,P1_:TSingle3D ) :TSingleM4;
-
 implementation //############################################################### ■
 
-uses System.Classes, System.SysUtils, System.Math,
-     FMX.Layers3D,
-     Main;
+uses System.Classes, System.SysUtils, System.Math;
 
 //$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$【レコード】
 
@@ -341,7 +313,7 @@ end;
 
 destructor TBones.Destroy;
 begin
-     _Root.Free;
+     _Root.DisposeOf;
 
      inherited;
 end;
@@ -448,7 +420,7 @@ begin
           end
      end;
 
-     S.Free;
+     S.DisposeOf;
 
      while not F.EndOfStream do
      begin
@@ -496,140 +468,12 @@ begin
           end;
      end;
 
-     L.Free;
+     L.DisposeOf;
 
-     F.Free;
+     F.DisposeOf;
 end;
-
-//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% TGLBones
-
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& private
-
-/////////////////////////////////////////////////////////////////////// メソッド
-
-procedure TGLBones.MakeModel;
-//······································
-     procedure AddTree( const NodeOGJ_:TGLObject; const NodeBVH_:TBoneNode );
-     var
-        P :TGLShaper;
-        I :Integer;
-     begin
-          P := TGLShaperLineCube.Create( NodeOGJ_ );
-
-          for I := 0 to NodeBVH_.ChildsN-1 do
-          begin
-               AddTree( P, NodeBVH_.Childs[ I ] );
-          end;
-     end;
-//······································
-var
-   I :Integer;
-begin
-     DeleteChilds;
-
-     for I := 0 to _Bones.Root.ChildsN-1 do
-     begin
-          AddTree( Self, _Bones.Root.Childs[ I ] );
-     end;
-
-     _FrameI := 0;
-end;
-
-procedure TGLBones.InitModel;
-//······································
-     procedure AddTree( const NodeOGJ_:TGLObject; const NodeBVH_:TBoneNode );
-     var
-        I :Integer;
-     begin
-          NodeOGJ_.Pose := NodeBVH_.Poses[ _FrameI ];
-
-          for I := 0 to NodeBVH_.ChildsN-1 do
-          begin
-               AddTree( NodeOGJ_.Childs[ I ], NodeBVH_.Childs[ I ] );
-          end;
-     end;
-//······································
-begin
-     AddTree( Self, _Bones.Root );
-end;
-
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& protected
-
-/////////////////////////////////////////////////////////////////////// アクセス
-
-function TGLBones.GetBones :TBones;
-begin
-     Result := _Bones;
-end;
-
-procedure TGLBones.SetBones( const Bones_:TBones );
-begin
-     _Bones := Bones_;
-
-     MakeModel;
-     InitModel;
-end;
-
-function TGLBones.GetFrameI :Integer;
-begin
-     Result := _FrameI;
-end;
-
-procedure TGLBones.SetFrameI( const FrameI_:Integer );
-begin
-     _FrameI := FrameI_;  InitModel;
-end;
-
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& public
-
-constructor TGLBones.Create;
-begin
-     inherited;
-
-     _Bones  := nil;
-     _FrameI := 1;
-end;
-
-destructor TGLBones.Destroy;
-begin
-
-
-     inherited;
-end;
-
-////////////////////////////////////////////////////////////////////////////////
 
 //$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$【ルーチン】
-
-function GapFit( const P0_,P1_:TSingle3D ) :TSingleM4;
-var
-   AX, AY ,AZ, AP, E :TSingle3D;
-begin
-     AZ := P0_.UnitorTo( P1_ );
-
-     with AZ do
-     begin
-          case MinI( Abs( X ), Abs( Y ) ,Abs( Z ) ) of
-            1: E := TSingle3D.Create( 1, 0, 0 );
-            2: E := TSingle3D.Create( 0, 1, 0 );
-            3: E := TSingle3D.Create( 0, 0, 1 );
-          end;
-     end;
-
-     AY := CrossProduct( AZ, E ).Unitor;
-
-     AX := CrossProduct( AY, AZ );
-
-     AP := ( P1_ + P0_ ) / 2;
-
-     with Result do
-     begin
-          _11 := AX.X;  _12 := AY.X;  _13 := AZ.X;  _14 := AP.X;
-          _21 := AX.Y;  _22 := AY.Y;  _23 := AZ.Y;  _24 := AP.Y;
-          _31 := AX.Z;  _32 := AY.Z;  _33 := AZ.Z;  _34 := AP.Z;
-          _41 :=    0;  _42 :=    0;  _43 :=    0;  _44 :=    1;
-     end;
-end;
 
 //############################################################################## □
 
